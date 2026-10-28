@@ -20,6 +20,7 @@ from pathlib import Path
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 import pyogrio
 import rfm
 import shapely
@@ -90,16 +91,19 @@ def main() -> int:
             d[col] = np.where(match >= 0, vals[np.maximum(match, 0)], None)
         d = d.reset_index(drop=True)
         (out_dir / f"sheet={sheet}").mkdir(parents=True, exist_ok=True)
-        d.to_parquet(
-            out_dir / f"sheet={sheet}" / "part.parquet",
-            compression="zstd",
-            write_covering_bbox=True,
-            index=False,
-        )
+        target = out_dir / f"sheet={sheet}" / "part.parquet"
+        d.to_parquet(target, compression="zstd", write_covering_bbox=True, index=False)
+        # the same types in every sheet, also where a column is all NULL (see rfm.conform)
+        pq.write_table(rfm.conform(pq.read_table(target)), target, compression="zstd")
         log["sheets"][sheet] = {"read": len(df), "kept": len(d), "no_layer_polygon": int((match < 0).sum()),
                                 "cells_in_several_layer_polygons": n_multi}  # fmt: skip
         total += len(d)
         print(sheet, log["sheets"][sheet], flush=True)
+    schemas = {
+        tuple((f.name, str(f.type)) for f in pq.ParquetFile(p).schema_arrow)
+        for p in out_dir.glob("sheet=*/part.parquet")
+    }
+    assert len(schemas) == 1, f"{len(schemas)} different schemas among the sheets"
     log["rows"] = total
     (ROOT / "docs").mkdir(exist_ok=True)
     (ROOT / "docs" / "extract_log.json").write_text(
