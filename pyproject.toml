@@ -1,0 +1,29 @@
+[project]
+name = "yamagata-forest-resource-mesh-2026"
+version = "0.1.0"
+description = "Yamagata Prefecture extract of 全国森林資源メッシュ (Forestry Agency), reproducible collection"
+requires-python = ">=3.12"
+dependencies = [
+    "huggingface-hub>=2.2.0",
+    "pyarrow>=26.0.0",
+    "pyogrio>=0.11.0",
+    "pyproj>=3.7.0",
+    "shapely>=2.1.0",
+    "geopandas>=1.1.0",
+    "duckdb>=1.5.5",
+]
+
+[dependency-groups]
+dev = ["pytest>=9.1.1", "ruff>=0.16.9"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["scripts"]
