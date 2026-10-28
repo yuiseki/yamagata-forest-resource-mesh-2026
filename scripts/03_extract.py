@@ -36,7 +36,11 @@ def main() -> int:
     shp = next(n for n in zipfile.ZipFile(z).namelist() if n.endswith(".shp"))
     n03 = gpd.read_file(f"zip://{z}!{shp}")
     assert set(n03["N03_001"]) == {P.ja} and n03.crs.to_epsg() == 6668
-    pref_polys = STRtree(n03.to_crs(P.crs).geometry.values)
+    pref_geoms = n03.to_crs(P.crs).geometry.values.copy()
+    shapely.prepare(
+        pref_geoms
+    )  # the exact test below runs against prepared polygons: it is hundreds of times faster
+    pref_polys = STRtree(pref_geoms)
     lay_path = run / "gpkg" / P.layer_gpkg
     layer = gpd.read_file(lay_path, layer=rfm.layer_name(lay_path, P.ja))
     assert layer.crs.to_epsg() == 6668, layer.crs
@@ -51,12 +55,17 @@ def main() -> int:
     total = 0
     for p in sorted((run / "gpkg").glob("fr_mesh20m_*_2025.gpkg")):
         sheet = rfm.sheet_of(p)
-        df = pyogrio.read_dataframe(p, fid_as_index=True, use_arrow=True)
+        mesh_layer = [str(x[0]) for x in pyogrio.list_layers(p) if x[1] is not None][
+            0
+        ]  # the file also holds layer_styles
+        df = pyogrio.read_dataframe(p, layer=mesh_layer, fid_as_index=True, use_arrow=True)
         crs = df.crs.to_epsg() if df.crs else None
         assert crs == P.crs, (p.name, crs)
         b = shapely.bounds(df.geometry.values)
         cx, cy = (b[:, 0] + b[:, 2]) / 2, (b[:, 1] + b[:, 3]) / 2
-        hit, _ = pref_polys.query(shapely.points(cx, cy), predicate="intersects")
+        centres = shapely.points(cx, cy)
+        ci, cj = pref_polys.query(centres)  # candidate pairs by bounding box
+        hit = np.unique(ci[shapely.intersects(pref_geoms[cj], centres[ci])])
         sel = np.zeros(len(df), dtype=bool)
         sel[hit] = True
         if not sel.any():

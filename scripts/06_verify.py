@@ -113,7 +113,7 @@ def main() -> int:
             )
             r["layer_value_not_among_matches"] = (
                 q("""select count(*) from m where m.layer_ownership is not null and not exists
-                (select 1 from hits h where h.fid = m.source_fid and h.own = m.layer_ownership and h.code5 = m.layer_municipality_code5 and h.mname = m.layer_municipality_name)""")
+                (select 1 from hits h where h.fid = m.source_fid and h.own is not distinct from m.layer_ownership and h.code5 is not distinct from m.layer_municipality_code5 and h.mname is not distinct from m.layer_municipality_name)""")
             )
         per[sheet] = r
         for k, v in r.items():

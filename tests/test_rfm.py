@@ -117,6 +117,7 @@ def test_low_coverage_lists_big_gaps_only():
         {"group": "B市", "cells": 1000, "林種": 990},
         {"group": "C町", "cells": 10, "林種": 0},
         {"group": "<NULL>", "cells": 5000, "林種": 0},
+        {"group": "<NULL> / <NULL>", "cells": 5000, "林種": 10},
     ]
     got = rfm.low_coverage(rows, "林種", min_cells=100, below=0.9)
     assert [g["group"] for g in got] == [

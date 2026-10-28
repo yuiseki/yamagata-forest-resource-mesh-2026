@@ -7,6 +7,7 @@ uv run python scripts/05_card.py
 """
 
 import json
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import rfm
@@ -65,7 +66,18 @@ def main() -> None:
     reused_runs = sorted(
         {Path(v["reused_from"]).name for v in archives.values() if "reused_from" in v}
     )
-    lms = sorted({v["http"]["last-modified"] for v in archives.values() if "http" in v})
+    lms = sorted(
+        {
+            parsedate_to_datetime(v["http"]["last-modified"])
+            for v in archives.values()
+            if "http" in v
+        }
+    )
+    lm_text = (
+        f"between {lms[0]:%Y-%m-%d %H:%M} and {lms[-1]:%Y-%m-%d %H:%M} UTC"
+        if lms
+        else "see the manifest"
+    )
     retrieval = f"{len(fetched)} of the {len(archives)} sheet archives were fetched on {date}"
     if reused_runs:
         retrieval += (f"; the other {len(archives) - len(fetched)} are byte-identical copies of archives that an earlier "
@@ -107,7 +119,7 @@ configs:
 林野庁の「全国森林資源メッシュ」(20 m メッシュ)のうち、{P.ja}の部分を切り出して固定した GeoParquet です。
 分析やモデルは含みません。原データの属性は名前も値も変えていません。
 
-A {P.en} Prefecture extract of 全国森林資源メッシュ (Forestry Agency, MAFF; 20 m cells), frozen as GeoParquet, one file per
+{"An" if P.en[0] in "AEIOU" else "A"} {P.en} Prefecture extract of 全国森林資源メッシュ (Forestry Agency, MAFF; 20 m cells), frozen as GeoParquet, one file per
 source sheet. The 11 source attributes keep their names and values.
 
 ## Read this first: what the {P.en} data can and cannot say
@@ -127,7 +139,7 @@ source sheet. The 11 source attributes keep their names and values.
   `fr_mesh20m_<sheet>_2025`) that touch {P.en}. The ownership and municipality columns come from the 森林計画対象森林レイヤ
   of {P.en}, `{P.layer_file.removesuffix(".7z")}` ({LAYER_PAGE}), by the same agency.
 - Retrieved: {retrieval}. The records have no version field (created {mesh["metadata_created"][:10]}, metadata modified {mesh["metadata_modified"][:10]});
-  the archives were last modified {", ".join(lms) if lms else "see the manifest"} on the server. Each original is dated by its own 森林簿年月日 ({d0} to {d1}).
+  the archives were last modified {lm_text} on the server. Each original is dated by its own 森林簿年月日 ({d0} to {d1}).
   sha256 of every archive is in `raw/{run.name}/MANIFEST.json`.
 - Licence: 公共データ利用規約 第1.0版 (PDL1.0), stated on the record together with the Forestry Agency's 重要情報 and the
   全国森林資源メッシュの利用規約 (the CKAN licence field says 政府標準利用規約, the earlier terms; both are CC BY compatible).

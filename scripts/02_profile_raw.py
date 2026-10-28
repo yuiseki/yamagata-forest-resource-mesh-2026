@@ -31,7 +31,7 @@ def write_md(res: dict, run: Path) -> None:
         "",
         f"These counts cover the whole sheets, so they include cells of neighbouring prefectures and of the sea. The {P.en}-only figures are in docs/{P.profile_stem}.md.",
         "",
-        f"- sheets: {res['sheets']}; rows: {n:,}; layers: {', '.join(res['layers'])[:80]}; geometry type ids: {res['geometry_type_ids']} (6 = MultiPolygon); invalid geometries: {res['invalid_geometry']}",
+        f"- sheets: {res['sheets']}; rows: {n:,}; layers: {len(res['layers'])} geometry layers, one per file, named like the file; geometry type ids: {res['geometry_type_ids']} (6 = MultiPolygon); invalid geometries: {res['invalid_geometry']}",
         f"- CRS: {'; '.join(res['crs'])}; plane bbox x {b[0]:.0f} to {b[2]:.0f}, y {b[1]:.0f} to {b[3]:.0f}",
         f"- column sets: {len(res['field_sets'])} distinct ({', '.join(res['field_sets'][0])}, plus the GeoPackage fid)",
         "",

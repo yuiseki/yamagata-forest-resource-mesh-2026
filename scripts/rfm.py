@@ -188,11 +188,13 @@ def beech_oak_statement(hits: dict) -> str:
 
 
 def low_coverage(rows: list[dict], col: str, min_cells: int, below: float) -> list[dict]:
-    """Municipality (or other group) rows whose share of non-NULL `col` is below `below`; NULL group and tiny groups are left out."""
+    """Municipality (or other group) rows whose share of non-NULL `col` is below `below`; groups whose name starts with <NULL> (cells in no layer polygon) and tiny groups are left out."""
     out = [
         r
         for r in rows
-        if r["group"] != "<NULL>" and r["cells"] >= min_cells and r[col] / r["cells"] < below
+        if not r["group"].startswith("<NULL>")
+        and r["cells"] >= min_cells
+        and r[col] / r["cells"] < below
     ]
     return sorted(out, key=lambda r: r[col] / r["cells"])
 
