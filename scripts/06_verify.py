@@ -39,6 +39,27 @@ def main() -> int:
     con.execute(
         f"create table pref as select row_number() over () i, ST_Transform(g, 'EPSG:6668', 'EPSG:{P.crs}', always_xy := true) g from pref6668"
     )
+    # Testing 750,000 centres against a few thousand complex polygons is slow (hours for a long coast line), so the
+    # polygons are cut once into 5 km tiles; a centre intersects the polygons exactly when it intersects a tile
+    # (the area check below shows that the tiles add up to the polygons).
+    step = 5000
+    x0, y0, x1, y1 = con.execute(
+        "select min(ST_XMin(g)), min(ST_YMin(g)), max(ST_XMax(g)), max(ST_YMax(g)) from pref"
+    ).fetchone()
+    nx, ny = int((x1 - x0) // step) + 1, int((y1 - y0) // step) + 1
+    con.execute(
+        f"create table grid as select ST_MakeEnvelope({x0} + i * {step}, {y0} + j * {step}, {x0} + (i + 1) * {step}, "
+        f"{y0} + (j + 1) * {step}) b from range({nx}) t(i), range({ny}) u(j)"
+    )
+    con.execute(
+        "create table tiles as select ST_Intersection(p.g, gr.b) g from pref p join grid gr on ST_Intersects(p.g, gr.b)"
+    )
+    con.execute("delete from tiles where g is null or ST_IsEmpty(g)")
+    a_pref, a_tiles = con.execute(
+        "select (select sum(ST_Area(g)) from pref), (select sum(ST_Area(g)) from tiles)"
+    ).fetchone()
+    if abs(a_pref - a_tiles) > 1e-9 * a_pref:
+        raise SystemExit(f"the tiles do not add up to the polygons: {a_pref} against {a_tiles}")
     lay = run / "gpkg" / P.layer_gpkg
     lay_layer = rfm.layer_name(lay, P.ja)
     con.execute(
@@ -71,7 +92,7 @@ def main() -> int:
         )
         con.execute("drop table if exists sel")
         con.execute(
-            f"create temp table sel as select s.*, ST_Transform(s.c, 'EPSG:{P.crs}', 'EPSG:6668', always_xy := true) c6668 from s where s.fid in (select s2.fid from s s2 join pref a on ST_Intersects(a.g, s2.c))"
+            f"create temp table sel as select s.*, ST_Transform(s.c, 'EPSG:{P.crs}', 'EPSG:6668', always_xy := true) c6668 from s where s.fid in (select s2.fid from s s2 join tiles a on ST_Intersects(a.g, s2.c))"
         )
         r = {
             "source_rows": con.execute("select count(*) from s").fetchone()[0],
